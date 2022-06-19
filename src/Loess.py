@@ -25,16 +25,23 @@ class Loess(object):
     
     @staticmethod
     def get_weights(distances, min_range):
-        max_distance = np.max(distances[min_range])
-        weights = tricubic(distances[min_range] / max_distance)
+        max_distance = distances[min_range, np.arange(0, distances.shape[1])][-1]
+        weights = tricubic(distances[min_range, np.arange(0, distances.shape[1])] / max_distance)
         return weights
+
+    @staticmethod
+    def get_min_range(distances, window):
+        return np.argsort(distances, axis=0)[:window]
 
     def normalize_x(self, xx):
         return (xx - self.min_xx) / (self.max_xx - self.min_xx)
 
+    def denormalize_y(self, value):
+        return value * (self.max_yy - self.min_yy) + self.min_yy
+
     def weighted_pseudo_inverse(self, X, W):
         Xt_W = np.transpose(X) @ W
-        return np.linalg.pinv(Xt_W @ X) @ Xt_W
+        return np.linalg.inv(Xt_W @ X) @ Xt_W
 
     def estimate(self, x : np.array, window : int, degree : int = 1):
         """
@@ -58,16 +65,20 @@ class Loess(object):
         
         pf = PolynomialFeatures(degree)
 
-        xp = pf.fit_transform(normalized_x)
-        X1 = pf.fit_transform(self.n_xx)
+        xp = pf.fit_transform([normalized_x])
+        X1 = self.n_xx[min_range, np.arange(0, self.n_xx.shape[1])]
+        X1 = pf.fit_transform(X1)
 
-        W = np.multiply(np.eye(window), weights)
+        print(X1.T)
+        print(weights)
+
+        W = np.diag(weights)
 
         # (X^TWX)^-1 X^TW
-        WPinv = self.weighted_pseudo_inverse(X1, W)
+        WPinv = self.weighted_pseudo_inverse(X1, weights)
         
         Y = self.n_yy[min_range]
 
         beta = WPinv @ Y
 
-        return self.denormalize(beta @ xp)
+        return self.denormalize_y(beta @ xp)
