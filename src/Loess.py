@@ -25,8 +25,8 @@ class Loess(object):
     
     @staticmethod
     def get_weights(distances, min_range):
-        max_distance = distances[min_range, np.arange(0, distances.shape[1])][-1]
-        weights = tricubic(distances[min_range, np.arange(0, distances.shape[1])] / max_distance)
+        max_distance = np.max(distances[min_range])
+        weights = tricubic(distances[min_range] / max_distance)
         return weights
 
     @staticmethod
@@ -40,8 +40,9 @@ class Loess(object):
         return value * (self.max_yy - self.min_yy) + self.min_yy
 
     def weighted_pseudo_inverse(self, X, W):
-        Xt_W = np.transpose(X) @ W
-        return np.linalg.inv(Xt_W @ X) @ Xt_W
+        Xt_W = np.dot(X.T, W)
+        temp = np.linalg.inv(np.dot(Xt_W, X))
+        return np.dot(temp, Xt_W)
 
     def estimate(self, x : np.array, window : int, degree : int = 1):
         """
@@ -59,26 +60,25 @@ class Loess(object):
 
         normalized_x = self.normalize_x(x)
 
-        distances = np.abs(self.n_xx - normalized_x)
-        min_range = self.get_min_range(distances, window)
+        distances = np.sqrt(np.sum(np.power(self.n_xx - normalized_x, 2), 1))
+        min_range = np.argpartition(distances, window)
         weights = self.get_weights(distances, min_range)
         
+        # Extending matrices depending on degree
         pf = PolynomialFeatures(degree)
 
         xp = pf.fit_transform([normalized_x])
-        X1 = self.n_xx[min_range, np.arange(0, self.n_xx.shape[1])]
+        X1 = self.n_xx[min_range]
         X1 = pf.fit_transform(X1)
 
-        print(X1.T)
-        print(weights)
-
+        # Weight matrix
         W = np.diag(weights)
 
-        # (X^TWX)^-1 X^TW
-        WPinv = self.weighted_pseudo_inverse(X1, weights)
+        # Weighted Pseudo Inverse
+        WPinv = self.weighted_pseudo_inverse(X1, W)
         
-        Y = self.n_yy[min_range]
+        y = self.n_yy[min_range]
 
-        beta = WPinv @ Y
+        beta = np.dot(WPinv, y)
 
-        return self.denormalize_y(beta @ xp)
+        return self.denormalize_y(np.dot(beta, xp[0]))
