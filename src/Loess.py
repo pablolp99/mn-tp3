@@ -41,7 +41,7 @@ class Loess(object):
 
     def weighted_pseudo_inverse(self, X, W):
         Xt_W = np.dot(X.T, W)
-        temp = np.linalg.inv(np.dot(Xt_W, X))
+        temp = np.linalg.pinv(np.dot(Xt_W, X))
         return np.dot(temp, Xt_W)
 
     def estimate(self, x : np.array, window : int, degree : int = 1):
