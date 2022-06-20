@@ -10,16 +10,26 @@ def tricubic(x):
     y[idx] = np.power(1.0 - np.power(np.abs(x[idx]), 3), 3)
     return y
 
+def add_polynomial_features(X, degree):
+    B = np.ones((X.shape[0], 1))
+    B = np.concatenate((B, X), axis=1)
+    for d in range(2, degree+1):
+        A = X ** d
+        B = np.concatenate((B, A), axis=1)
+        
+    return B
+    
+
 
 class Loess(object):
 
     @staticmethod
     def normalize_data(data):
-        min_val = np.min(data)
-        max_val = np.max(data)
+        min_val = data.min(axis=0)
+        max_val = data.max(axis=0)
         return (data - min_val) / (max_val - min_val), min_val, max_val
 
-    def __init__(self, xx, yy, degree=1):
+    def __init__(self, xx, yy):
         self.n_xx, self.min_xx, self.max_xx = self.normalize_data(xx)
         self.n_yy, self.min_yy, self.max_yy = self.normalize_data(yy)
     
@@ -31,10 +41,29 @@ class Loess(object):
 
     @staticmethod
     def get_min_range(distances, window):
-        return np.argsort(distances, axis=0)[:window]
+        min_idx = np.argmin(distances)
+        n = len(distances)
+        if min_idx == 0:
+            return np.arange(0, window)
+        if min_idx == n-1:
+            return np.arange(n - window, n)
 
-    def normalize_x(self, xx):
-        return (xx - self.min_xx) / (self.max_xx - self.min_xx)
+        min_range = [min_idx]
+        while len(min_range) < window:
+            i0 = min_range[0]
+            i1 = min_range[-1]
+            if i0 == 0:
+                min_range.append(i1 + 1)
+            elif i1 == n-1:
+                min_range.insert(0, i0 - 1)
+            elif distances[i0-1] < distances[i1+1]:
+                min_range.insert(0, i0 - 1)
+            else:
+                min_range.append(i1 + 1)
+        return np.array(min_range)
+
+    def normalize_x(self, x):
+        return (x - self.min_xx) / (self.max_xx - self.min_xx)
 
     def denormalize_y(self, value):
         return value * (self.max_yy - self.min_yy) + self.min_yy
@@ -61,15 +90,18 @@ class Loess(object):
         normalized_x = self.normalize_x(x)
 
         distances = np.sqrt(np.sum(np.power(self.n_xx - normalized_x, 2), 1))
-        min_range = np.argpartition(distances, window)
+        min_range = self.get_min_range(distances, window)
         weights = self.get_weights(distances, min_range)
         
         # Extending matrices depending on degree
-        pf = PolynomialFeatures(degree)
+        # pf = PolynomialFeatures(degree)
 
-        xp = pf.fit_transform([normalized_x])
-        X1 = self.n_xx[min_range]
-        X1 = pf.fit_transform(X1)
+        # xp = pf.fit_transform([normalized_x])
+        # X1 = self.n_xx[min_range]
+        # X1 = pf.fit_transform(X1)
+
+        xp = add_polynomial_features(np.array([normalized_x]), degree)
+        X1 = add_polynomial_features(self.n_xx[min_range], degree)
 
         # Weight matrix
         W = np.diag(weights)
