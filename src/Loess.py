@@ -80,8 +80,10 @@ class Loess(object):
 
         xp = pf.fit_transform([normalized_x])[0]
         X1 = self.n_xx[min_range]
-        X1 = pf.fit_transform(X1)
-        # X1 = pf.fit_transform(X1.reshape(-1, 1))
+        if len(X1.shape) == 1:
+            X1 = pf.fit_transform(X1.reshape(-1, 1))
+        else:
+            X1 = pf.fit_transform(X1)
         
         # Weight matrix
         W = np.diag(weights)
