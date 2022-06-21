@@ -70,7 +70,8 @@ class Loess(object):
 
         normalized_x = self.normalize_x(x)
 
-        distances = np.sqrt(np.sum(np.power(self.n_xx - normalized_x, 2), 1))
+        # distances = np.sqrt(np.sum(np.power(self.n_xx - normalized_x, 2), 1))
+        distances = np.array([np.linalg.norm(_x - normalized_x) for _x in self.n_xx])
         min_range = self.get_min_range(distances, window)
         weights = self.get_weights(distances, min_range)
         
@@ -80,10 +81,8 @@ class Loess(object):
         xp = pf.fit_transform([normalized_x])[0]
         X1 = self.n_xx[min_range]
         X1 = pf.fit_transform(X1)
-
-        # xp = add_polynomial_features(np.array([normalized_x]), degree)
-        # X1 = add_polynomial_features(self.n_xx[min_range], degree)
-
+        # X1 = pf.fit_transform(X1.reshape(-1, 1))
+        
         # Weight matrix
         W = np.diag(weights)
 
@@ -94,4 +93,4 @@ class Loess(object):
 
         beta = np.dot(WPinv, y)
 
-        return beta, xp, self.denormalize_y(np.dot(beta, xp))
+        return self.denormalize_y(np.dot(beta, xp))
