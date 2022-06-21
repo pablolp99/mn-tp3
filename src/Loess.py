@@ -41,26 +41,7 @@ class Loess(object):
 
     @staticmethod
     def get_min_range(distances, window):
-        min_idx = np.argmin(distances)
-        n = len(distances)
-        if min_idx == 0:
-            return np.arange(0, window)
-        if min_idx == n-1:
-            return np.arange(n - window, n)
-
-        min_range = [min_idx]
-        while len(min_range) < window:
-            i0 = min_range[0]
-            i1 = min_range[-1]
-            if i0 == 0:
-                min_range.append(i1 + 1)
-            elif i1 == n-1:
-                min_range.insert(0, i0 - 1)
-            elif distances[i0-1] < distances[i1+1]:
-                min_range.insert(0, i0 - 1)
-            else:
-                min_range.append(i1 + 1)
-        return np.array(min_range)
+        return np.argsort(distances, axis=0)[:window]
 
     def normalize_x(self, x):
         return (x - self.min_xx) / (self.max_xx - self.min_xx)
@@ -94,14 +75,14 @@ class Loess(object):
         weights = self.get_weights(distances, min_range)
         
         # Extending matrices depending on degree
-        # pf = PolynomialFeatures(degree)
+        pf = PolynomialFeatures(degree)
 
-        # xp = pf.fit_transform([normalized_x])
-        # X1 = self.n_xx[min_range]
-        # X1 = pf.fit_transform(X1)
+        xp = pf.fit_transform([normalized_x])[0]
+        X1 = self.n_xx[min_range]
+        X1 = pf.fit_transform(X1)
 
-        xp = add_polynomial_features(np.array([normalized_x]), degree)
-        X1 = add_polynomial_features(self.n_xx[min_range], degree)
+        # xp = add_polynomial_features(np.array([normalized_x]), degree)
+        # X1 = add_polynomial_features(self.n_xx[min_range], degree)
 
         # Weight matrix
         W = np.diag(weights)
@@ -113,4 +94,4 @@ class Loess(object):
 
         beta = np.dot(WPinv, y)
 
-        return self.denormalize_y(np.dot(beta, xp[0]))
+        return beta, xp, self.denormalize_y(np.dot(beta, xp))
