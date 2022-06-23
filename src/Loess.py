@@ -10,16 +10,22 @@ def tricubic(x):
     y[idx] = np.power(1.0 - np.power(np.abs(x[idx]), 3), 3)
     return y
 
-def add_polynomial_features(X, degree):
-    B = np.ones((X.shape[0], 1))
-    B = np.concatenate((B, X), axis=1)
-    for d in range(2, degree+1):
-        A = X ** d
-        B = np.concatenate((B, A), axis=1)
-        
-    return B
-    
+def bi_square(xx, **kwargs):
+    """
+    The bi-square weight function calculated over values of xx
+    Parameters
+    ----------
+    xx: float array
+    """
+    ans = np.zeros(xx.shape)
+    idx = np.where(xx < 1)
+    ans[idx] = (1 - xx[idx] ** 2) ** 2
+    return ans
 
+kernel_map = {
+    "bisquare": bi_square,
+    "tricubic": tricubic,
+}
 
 class Loess(object):
 
@@ -34,9 +40,9 @@ class Loess(object):
         self.n_yy, self.min_yy, self.max_yy = self.normalize_data(yy)
     
     @staticmethod
-    def get_weights(distances, min_range):
+    def get_weights(distances, min_range, kernel):
         max_distance = np.max(distances[min_range])
-        weights = tricubic(distances[min_range] / max_distance)
+        weights = kernel(distances[min_range] / max_distance)
         return weights
 
     @staticmethod
@@ -54,7 +60,7 @@ class Loess(object):
         temp = np.linalg.pinv(np.dot(Xt_W, X))
         return np.dot(temp, Xt_W)
 
-    def estimate(self, x : np.array, window : int, degree : int = 1):
+    def estimate(self, x : np.array, kernel : str, window : int, degree : int = 1):
         """
         Estimates f(x) based on observations given set of inputs.
 
@@ -73,7 +79,7 @@ class Loess(object):
         # distances = np.sqrt(np.sum(np.power(self.n_xx - normalized_x, 2), 1))
         distances = np.array([np.linalg.norm(_x - normalized_x) for _x in self.n_xx])
         min_range = self.get_min_range(distances, window)
-        weights = self.get_weights(distances, min_range)
+        weights = self.get_weights(distances, min_range, kernel_map[kernel])
         
         # Extending matrices depending on degree
         pf = PolynomialFeatures(degree)
