@@ -33,11 +33,11 @@ class Loess(object):
     def normalize_data(data):
         min_val = data.min(axis=0)
         max_val = data.max(axis=0)
-        return (data - min_val) / (max_val - min_val), min_val, max_val
+        return (data - np.mean(data)) / np.std(data), min_val, max_val, np.mean(data), np.std(data)
 
     def __init__(self, xx, yy):
-        self.n_xx, self.min_xx, self.max_xx = self.normalize_data(xx)
-        self.n_yy, self.min_yy, self.max_yy = self.normalize_data(yy)
+        self.n_xx, self.min_xx, self.max_xx, self.mean_xx, self.std_xx = self.normalize_data(xx)
+        self.n_yy, self.min_yy, self.max_yy, self.mean_yy, self.std_yy = self.normalize_data(yy)
     
     @staticmethod
     def get_weights(distances, min_range, kernel):
@@ -50,10 +50,10 @@ class Loess(object):
         return np.argsort(distances, axis=0)[:window]
 
     def normalize_x(self, x):
-        return (x - self.min_xx) / (self.max_xx - self.min_xx)
+        return (x - self.mean_xx) / self.std_xx
 
     def denormalize_y(self, value):
-        return value * (self.max_yy - self.min_yy) + self.min_yy
+        return value * self.std_yy + self.mean_yy
 
     def weighted_pseudo_inverse(self, X, W):
         Xt_W = np.dot(X.T, W)
