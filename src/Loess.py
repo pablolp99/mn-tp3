@@ -7,7 +7,7 @@ from sklearn.preprocessing import PolynomialFeatures
 def tricubic(x):
     y = np.zeros_like(x)
     idx = (x >= -1) & (x <= 1)
-    y[idx] = np.power(1.0 - np.power(np.abs(x[idx]), 3), 3)
+    y[idx] = np.power(1.0 - np.power(x[idx], 3), 3)
     return y
 
 def bi_square(xx, **kwargs):
@@ -31,13 +31,13 @@ class Loess(object):
 
     @staticmethod
     def normalize_data(data):
-        min_val = data.min(axis=0)
-        max_val = data.max(axis=0)
-        return (data - min_val) / (max_val - min_val), min_val, max_val
+        mean = np.mean(data)
+        standard_deviation = np.std(data)
+        return (data - mean) / standard_deviation, mean, standard_deviation
 
     def __init__(self, xx, yy):
-        self.n_xx, self.min_xx, self.max_xx = self.normalize_data(xx)
-        self.n_yy, self.min_yy, self.max_yy = self.normalize_data(yy)
+        self.n_xx, self.mean_xx, self.std_xx = self.normalize_data(xx)
+        self.n_yy, self.mean_yy, self.std_yy = self.normalize_data(yy)
     
     @staticmethod
     def get_weights(distances, min_range, kernel):
@@ -50,10 +50,10 @@ class Loess(object):
         return np.argsort(distances, axis=0)[:window]
 
     def normalize_x(self, x):
-        return (x - self.min_xx) / (self.max_xx - self.min_xx)
+        return (x - self.mean_xx) / self.std_xx
 
     def denormalize_y(self, value):
-        return value * (self.max_yy - self.min_yy) + self.min_yy
+        return value * self.std_yy + self.mean_yy
 
     def weighted_pseudo_inverse(self, X, W):
         Xt_W = np.dot(X.T, W)
@@ -91,6 +91,29 @@ class Loess(object):
         else:
             X1 = pf.fit_transform(X1)
         
+        if degree == 2:
+            xp = PolynomialFeatures(1).fit_transform([normalized_x])[0]
+
+            xpSq = np.square(normalized_x)
+
+            cross = PolynomialFeatures(2, interaction_only=True).fit_transform([normalized_x])[0][len(normalized_x)+1:]
+
+            xp = np.concatenate((np.concatenate((xp, xpSq)), cross))
+
+            X1_pre = X1.reshape(-1, 1) if len(X1.shape) == 1 else X1
+
+            X1 = PolynomialFeatures(1).fit_transform(X1_pre)
+
+            X1Sq = np.square(X1_pre)
+
+            X1cross = PolynomialFeatures(2, interaction_only=True).fit_transform(X1_pre)[:, len(X1_pre[0])+1:]
+
+            X1 = np.concatenate((np.concatenate((X1, X1Sq), axis=1), X1cross), axis=1)
+
+            print(X1.shape)
+            print(PolynomialFeatures(2).fit_transform([normalized_x])[0].shape)
+            print(xp.shape)
+
         # Weight matrix
         W = np.diag(weights)
 
