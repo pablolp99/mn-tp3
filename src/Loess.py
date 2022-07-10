@@ -6,7 +6,7 @@ from sklearn.preprocessing import PolynomialFeatures
 
 def tricubic(x):
     y = np.zeros_like(x)
-    idx = (x >= -1) & (x <= 1)
+    idx = (x >= 0) & (x < 1)
     y[idx] = np.power(1.0 - np.power(x[idx], 3), 3)
     return y
 
@@ -86,33 +86,29 @@ class Loess(object):
 
         xp = pf.fit_transform([normalized_x])[0]
         X1 = self.n_xx[min_range]
+        X1_pre = X1.reshape(-1, 1) if len(X1.shape) == 1 else X1
         if len(X1.shape) == 1:
             X1 = pf.fit_transform(X1.reshape(-1, 1))
         else:
+            print("caca")
             X1 = pf.fit_transform(X1)
-        
-        if degree == 2:
-            xp = PolynomialFeatures(1).fit_transform([normalized_x])[0]
 
-            xpSq = np.square(normalized_x)
+        # if degree == 2:
+        #     xp = PolynomialFeatures(1).fit_transform([normalized_x])[0]
 
-            cross = PolynomialFeatures(2, interaction_only=True).fit_transform([normalized_x])[0][len(normalized_x)+1:]
+        #     xpSq = np.square(normalized_x)
 
-            xp = np.concatenate((np.concatenate((xp, xpSq)), cross))
+        #     cross = PolynomialFeatures(2, interaction_only=True).fit_transform([normalized_x])[0][len(normalized_x)+1:]
 
-            X1_pre = X1.reshape(-1, 1) if len(X1.shape) == 1 else X1
+        #     xp = np.concatenate((np.concatenate((xp, xpSq)), cross))
 
-            X1 = PolynomialFeatures(1).fit_transform(X1_pre)
+        #     X1 = PolynomialFeatures(1).fit_transform(X1_pre)
 
-            X1Sq = np.square(X1_pre)
+        #     X1Sq = np.square(X1_pre)
 
-            X1cross = PolynomialFeatures(2, interaction_only=True).fit_transform(X1_pre)[:, len(X1_pre[0])+1:]
+        #     X1cross = PolynomialFeatures(2, interaction_only=True).fit_transform(X1_pre)[:, len(X1_pre[0])+1:]
 
-            X1 = np.concatenate((np.concatenate((X1, X1Sq), axis=1), X1cross), axis=1)
-
-            print(X1.shape)
-            print(PolynomialFeatures(2).fit_transform([normalized_x])[0].shape)
-            print(xp.shape)
+        #     X1 = np.concatenate((np.concatenate((X1, X1Sq), axis=1), X1cross), axis=1)
 
         # Weight matrix
         W = np.diag(weights)
